@@ -8,7 +8,6 @@ import "vis-timeline/styles/vis-timeline-graph2d.css";
 import {createDate, FilterMDFiles, getImgUrl, parseTag} from './utils';
 
 export class TimelineProcessor {
-
 	async insertTimelineIntoCurrentNote(sourceView: MarkdownView, settings: TimelinesSettings, vaultFiles: TFile[], fileCache: MetadataCache, appVault: Vault) {
 		let editor = sourceView.editor;
 		if (editor) {

@@ -1,5 +1,5 @@
 import type {DataAdapter, MetadataCache} from 'obsidian';
-import {getAllTags, TFile, Vault} from 'obsidian';
+import {getAllTags, TFile,} from 'obsidian';
 
 export function parseTag(tag: string, tagList: string[]) {
 	tag = tag.trim();
@@ -70,12 +70,6 @@ export function getImgUrl(vaultAdaptor: DataAdapter, path: string): string {
 }
 
 const parseSource = (src: string, filepath: string): string => {
-	// Internal embed link format - "![[<link>]]"
-	if (/^\!\[\[.+\]\]$/.test(src)) {
-		const link = src.slice(3, -2)
-		const file = app.metadataCache.getFirstLinkpathDest(link, filepath);
-		return file ? app.vault.getResourcePath(file) : link;
-	}
 	// Absolute paths, relative paths, & URLs
 	const path = src.startsWith('/') ? src.slice(1) : src;
 	const file = app.vault.getAbstractFileByPath(path);
