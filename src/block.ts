@@ -1,4 +1,3 @@
-//import Gallery from './svelte/Gallery.svelte'
 import type {AllNotesData, NoteData, TimelinesSettings} from './types';
 import {Args, FrontmatterKeys, RENDER_TIMELINE} from './constants';
 import type {FrontMatterCache, MarkdownView, MetadataCache, TFile, Vault,} from 'obsidian';
@@ -260,15 +259,8 @@ async function getTimelineData(fileList: TFile[], settings: TimelinesSettings, f
 	for (const file of fileList) {
 		const metadata = fileCache.getFileCache(file);
 		const frontmatter = metadata.frontmatter;
-		const doc = new DOMParser().parseFromString(await appVault.read(file), 'text/html');
-		// If there are no timelineData elements, add a default "dummy" element to capture data from the frontmatter
-		const timelineData = doc.getElementsByClassName('ob-timelines').length > 0 ? doc.getElementsByClassName('ob-timelines') : [doc.createElement('div')];
 
-		// @ts-ignore
-		for (let event of timelineData) {
-			if (!(event instanceof HTMLElement)) continue;
-
-			const [startDate, noteTitle, description, noteClass, notePath, type, endDate] = getFrontmatterData(frontmatter, settings.frontmatterKeys, event, file);
+			const [startDate, noteTitle, description, img, noteClass, notePath, type, endDate] = getFrontmatterData(frontmatter, settings.frontmatterKeys, null, file);
 
 			let noteId;
 			if (startDate[0] == '-') {
@@ -283,8 +275,7 @@ async function getTimelineData(fileList: TFile[], settings: TimelinesSettings, f
 				date: startDate,
 				title: noteTitle,
 				description: description ?? frontmatter.description,
-				img: getImgUrl(appVault.adapter, event.dataset.img) ?? getImgUrl(appVault.adapter, frontmatter?.image),
-				innerHTML: event.innerHTML ?? frontmatter?.html ?? '',
+				img: getImgUrl(appVault.adapter, img),
 				path: notePath,
 				class: noteClass,
 				type: type,
@@ -299,24 +290,24 @@ async function getTimelineData(fileList: TFile[], settings: TimelinesSettings, f
 				timelineNotes[noteId].splice(insertIndex, 0, note);
 			}
 		}
-	}
 
 	return [timelineNotes, timelineDates];
 }
 
-function getFrontmatterData(frontmatter: FrontMatterCache | null, frontmatterKeys: FrontmatterKeys, event: HTMLElement, file: TFile): [string, string, string, string, string, string, string | null] {
-	const startDate = event.dataset.date ?? findMatchingFrontmatterKey(frontmatter, frontmatterKeys.startDateKey);
+function getFrontmatterData(frontmatter: FrontMatterCache | null, frontmatterKeys: FrontmatterKeys, event: HTMLElement, file: TFile): [string, string, string, string, string, string, string, string | null] {
+	const startDate = findMatchingFrontmatterKey(frontmatter, frontmatterKeys.startDateKey);
 	if (!startDate) {
 		new Notice(`No date found for ${file.name}`);
-		return ['', '', '', '', '', '', ''];
+		return ['', '', '', '', '', '', '', ''];
 	}
-	const noteTitle = event.dataset.title ?? findMatchingFrontmatterKey(frontmatter, frontmatterKeys.titleKey) ?? file.name.replace(".md", "");
+	const noteTitle = findMatchingFrontmatterKey(frontmatter, frontmatterKeys.titleKey) ?? file.name.replace(".md", "");
 	const description = frontmatter.desription;
-	const noteClass = event.dataset.class ?? frontmatter["color"] ?? '';
+	const img = frontmatter?.image;
+	const noteClass = frontmatter["color"] ?? '';
 	const notePath = '/' + file.path;
-	const type = event.dataset.type ?? frontmatter["type"] ?? 'box';
-	const endDate = event.dataset.end ?? findMatchingFrontmatterKey(frontmatter, frontmatterKeys.endDateKey) ??  null;
-	return [startDate, noteTitle, description, noteClass, notePath, type, endDate];
+	const type = frontmatter["type"] ?? 'box';
+	const endDate = findMatchingFrontmatterKey(frontmatter, frontmatterKeys.endDateKey) ?? null;
+	return [startDate, noteTitle, description, img, noteClass, notePath, type, endDate];
 }
 
 function findMatchingFrontmatterKey(frontmatter: FrontMatterCache | null, keys: string[]) {

@@ -17,7 +17,6 @@ export interface CardContainer {
 	title: string;
 	description: string;
 	img: string;
-	innerHTML: string;
 	path: string;
 	endDate: string;
 	type: string;
