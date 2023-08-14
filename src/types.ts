@@ -1,4 +1,16 @@
-import {FrontmatterKeys} from "./constants";
+export interface FrontmatterKeys {
+	startDateKey: string[];
+	endDateKey: string[];
+	titleKey: string[];
+	descriptionKey: string[];
+}
+
+export const DEFAULT_FRONTMATTER_KEYS: FrontmatterKeys = {
+	startDateKey: ['start-date'],
+	endDateKey: ['end-date'],
+	titleKey: ['title'],
+	descriptionKey:['description'],
+};
 
 export interface TimelinesSettings {
 	era: any;

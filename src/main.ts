@@ -1,8 +1,16 @@
 import type {TimelinesSettings} from './types';
-import {DEFAULT_SETTINGS} from './constants';
-import {TimelinesSettingTab} from './settings';
 import {TimelineProcessor} from './block';
 import {MarkdownView, Plugin} from 'obsidian';
+import {TimelinesSettingTab} from './settings';
+import {DEFAULT_FRONTMATTER_KEYS} from './types'
+
+const DEFAULT_SETTINGS: TimelinesSettings = {
+    timelineTag: 'timeline',
+    sortDirection: true,
+	notePreviewOnHover: true,
+	frontmatterKeys: DEFAULT_FRONTMATTER_KEYS,
+	era: [' BC',' AD']
+}
 
 export default class TimelinesPlugin extends Plugin {
 	settings: TimelinesSettings;

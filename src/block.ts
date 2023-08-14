@@ -1,11 +1,23 @@
-import type {AllNotesData, NoteData, TimelinesSettings} from './types';
-import {Args, FrontmatterKeys, RENDER_TIMELINE} from './constants';
 import type {FrontMatterCache, MarkdownView, MetadataCache, TFile, Vault,} from 'obsidian';
-import {Notice} from 'obsidian';
-import {Timeline} from "vis-timeline/esnext";
-import {DataSet} from "vis-data";
-import "vis-timeline/styles/vis-timeline-graph2d.css";
+import type {FrontmatterKeys, NoteData, TimelinesSettings} from './types';
+import {BST} from './bst';
+import {App, Notice} from 'obsidian';
 import {createDate, FilterMDFiles, getImgUrl, parseTag} from './utils';
+import {DataSet} from "vis-data";
+import {Timeline} from "vis-timeline/esnext";
+import "vis-timeline/styles/vis-timeline-graph2d.css";
+
+export interface Args {
+	tags: string;
+	divHeight: number;
+	startDate: string;
+	endDate: string;
+	minDate: string;
+	maxDate: string;
+	[key: string]: string | number;
+}
+
+export const RENDER_TIMELINE: RegExp = /<!--TIMELINE BEGIN tags=['"]([^"]*?)['"]-->([\s\S]*?)<!--TIMELINE END-->/i;
 
 export class TimelineProcessor {
 	async insertTimelineIntoCurrentNote(sourceView: MarkdownView, settings: TimelinesSettings, vaultFiles: TFile[], fileCache: MetadataCache, appVault: Vault) {
@@ -58,12 +70,12 @@ export class TimelineProcessor {
 			args.tags = source.trim();
 		}
 
-		let tagList: string[] = [];
-		args.tags.split(";").forEach(tag => parseTag(tag, tagList));
-		tagList.push(settings.timelineTag);
+		let tagSet = new Set<string>();
+		args.tags.split(";").forEach(tag => parseTag(tag, tagSet));
+		tagSet.add(settings.timelineTag);
 
 		// Filter all markdown files to only those containing the tag list
-		let fileList = vaultFiles.filter(file => FilterMDFiles(file, tagList, fileCache));
+		let fileList = vaultFiles.filter(file => FilterMDFiles(file, tagSet, fileCache));
 		if (!fileList) {
 			// if no files valid for timeline
 			return;
@@ -72,7 +84,7 @@ export class TimelineProcessor {
 		// Keep only the files that have the time info
 		let timeline = document.createElement('div');
 		timeline.setAttribute('class', 'timeline');
-		let [timelineNotes, timelineDates] = await getTimelineData(fileList, settings, fileCache, appVault);
+		let [timelineNotes, timelineDates] = await getTimelineData(appVault, fileCache, fileList, settings);
 
 		// Sort events based on setting
 		if (settings.sortDirection) {
@@ -89,7 +101,7 @@ export class TimelineProcessor {
 			// Build the timeline html element
 			for (let date of timelineDates) {
 				let noteContainer = timeline.createDiv({ cls: 'timeline-container' });
-				let noteHeader = noteContainer.createEl('h2', { text: timelineNotes[date][0].date.replace(/-0*$/g, '').replace(/-0*$/g, '').replace(/-0*$/g, '')});
+				let noteHeader = noteContainer.createEl('h2', { text: timelineNotes.get(date)[0].date.replace(/-0*$/g, '').replace(/-0*$/g, '').replace(/-0*$/g, '')});
 				let era = settings.era[Number(!noteHeader.textContent.startsWith('-'))];
 				let eventContainer = noteContainer.createDiv({ cls: 'timeline-event-list', attr: { 'style': 'display: block'} });
 				noteHeader.textContent += ' ' + era;
@@ -115,11 +127,11 @@ export class TimelineProcessor {
 					noteHeader.setAttribute('style', 'text-align: right;');
 				}
 
-				if (!timelineNotes[date]) {
+				if (!timelineNotes.has(date)) {
 					continue;
 				}
 
-				for (let eventAtDate of timelineNotes[date]) {
+				for (let eventAtDate of timelineNotes.get(date)) {
 					let noteCard = eventContainer.createDiv({ cls: 'timeline-card' });
 					// add an image only if available
 					if (eventAtDate.img) {
@@ -151,7 +163,7 @@ export class TimelineProcessor {
 		timelineDates.forEach(date => {
 
 			// add all events at this date
-			Object.values(timelineNotes[date]).forEach(event => {
+			Object.values(timelineNotes.get(date)).forEach(event => {
 				// Create Event Card
 				let noteCard = document.createElement('div');
 				noteCard.className = 'timeline-card';
@@ -249,11 +261,13 @@ export class TimelineProcessor {
 	}
 }
 
-async function getTimelineData(fileList: TFile[], settings: TimelinesSettings, fileCache: MetadataCache, appVault: Vault): Promise<[NoteData[], number[]]> {
+const cache = new Map<string, [Map<number, NoteData>, number[]]>();
+
+async function getTimelineData(appVault: Vault, fileCache: MetadataCache, fileList: TFile[], settings: TimelinesSettings): Promise<[Map<number, NoteData>, number[]]> {
 	const timeline = document.createElement('div');
 	timeline.classList.add('timeline');
-	const timelineNotes: AllNotesData = [];
-	const timelineDates: number[] = [];
+	const timelineNotes = new Map<number, NoteData>();
+	const timelineDates = new BST<number>();
 
 	for (const file of fileList) {
 		const metadata = fileCache.getFileCache(file);
@@ -274,23 +288,24 @@ async function getTimelineData(fileList: TFile[], settings: TimelinesSettings, f
 				date: startDate,
 				title: noteTitle,
 				description: description ?? frontmatter.description,
-				img: getImgUrl(appVault.adapter, img),
+				img: getImgUrl(app, appVault.adapter, img),
 				path: notePath,
 				class: noteClass,
 				type: type,
 				endDate: endDate
 			};
 
-			if (!timelineNotes[noteId]) {
-				timelineNotes[noteId] = [note];
-				timelineDates.push(noteId);
+			if (!timelineNotes.has(noteId)) {
+				timelineNotes.set(noteId, [note]);
+				timelineDates.insert(noteId);
 			} else {
-				const insertIndex = settings.sortDirection ? 0 : timelineNotes[noteId].length;
-				timelineNotes[noteId].splice(insertIndex, 0, note);
+				const notes = timelineNotes.get(noteId);
+				const insertIndex = settings.sortDirection ? 0 : notes.length;
+				notes.splice(insertIndex, 0, note);
 			}
 		}
 
-	return [timelineNotes, timelineDates];
+		return [timelineNotes, Array.from(timelineDates.inOrder())];
 }
 
 function getFrontmatterData(frontmatter: FrontMatterCache | null, frontmatterKeys: FrontmatterKeys, event: HTMLElement, file: TFile): [string, string, string, string, string, string, string, string | null] {
@@ -315,6 +330,5 @@ function findMatchingFrontmatterKey(frontmatter: FrontMatterCache | null, keys: 
 			return frontmatter[key];
 		}
 	}
-	console.log(`No matching key found for ${keys}`)
 	return null;
 }

@@ -1,5 +1,5 @@
-import {App, PluginSettingTab, Setting} from 'obsidian'
 import TimelinesPlugin from './main'
+import {App,PluginSettingTab, Setting} from 'obsidian'
 
 export class TimelinesSettingTab extends PluginSettingTab {
 	plugin: TimelinesPlugin;
@@ -33,8 +33,7 @@ export class TimelinesSettingTab extends PluginSettingTab {
 				toggle.onChange(async (value) => {
 					this.plugin.settings.sortDirection = value;
 					await this.plugin.saveSettings();
-				});
-			})
+				})});
 
 		new Setting(containerEl)
 			.setName("Display Note Preview On Hover")
@@ -44,8 +43,7 @@ export class TimelinesSettingTab extends PluginSettingTab {
 				toggle.onChange(async (value) => {
 					this.plugin.settings.notePreviewOnHover = value;
 					await this.plugin.saveSettings();
-				});
-			})
+				})});
 
 		new Setting(containerEl)
 			.setName('Era Suffix')
@@ -62,8 +60,7 @@ export class TimelinesSettingTab extends PluginSettingTab {
 			createEl("p", {
 				text: "Specify the front matter keys used to extract start dates, end dates, and titles for the timeline notes. Defaults to 'start-date', 'end-date', and 'title'.",
 				cls: "setting-item-description"
-			})
-		);
+			}));
 
 		new Setting(containerEl)
 			.setName('Start Date Keys')
@@ -95,5 +92,6 @@ export class TimelinesSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-			}
 	}
+}
+

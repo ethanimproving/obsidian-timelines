@@ -1,7 +1,7 @@
-import type {DataAdapter, MetadataCache} from 'obsidian';
+import type {App, DataAdapter, MetadataCache} from 'obsidian';
 import {getAllTags, TFile,} from 'obsidian';
 
-export function parseTag(tag: string, tagList: string[]) {
+export function parseTag(tag: string, tagSet: Set<string>) {
 	tag = tag.trim();
 
 	// Skip empty tags
@@ -11,24 +11,24 @@ export function parseTag(tag: string, tagList: string[]) {
 
 	// Parse all subtags out of the given tag.
 	// I.e., #hello/i/am would yield [#hello/i/am, #hello/i, #hello]. */
-	tagList.push(tag);
+	tagSet.add(tag);
 	while (tag.contains("/")) {
 		tag = tag.substring(0, tag.lastIndexOf("/"));
-		tagList.push(tag);
+		tagSet.add(tag);
 	}
 }
 
-export function FilterMDFiles(file: TFile, tagList: String[], metadataCache: MetadataCache) {
-	if (!tagList || tagList.length === 0) {
+export function FilterMDFiles(file: TFile, tagSet: Set<string>, metadataCache: MetadataCache) {
+	if (!tagSet || tagSet.size === 0) {
 		return true;
 	}
 
-	let tags = getAllTags(metadataCache.getFileCache(file)).map(e => e.slice(1, e.length));
+	let tags = getAllTags(metadataCache.getFileCache(file)).map(e => e.slice(1));
 
 	if (tags && tags.length > 0) {
-		let filetags: string[] = [];
+		let filetags = new Set<string>();
 		tags.forEach(tag => parseTag(tag, filetags));
-		return tagList.every(val => { return filetags.indexOf(val as string) >= 0; });
+		return [...tagSet].every(val => filetags.has(val as string));
 	}
 
 	return false;
@@ -48,7 +48,7 @@ export function createDate(date: string): Date {
  * Return URL for specified image path
  * @param path - image path
  */
-export function getImgUrl(vaultAdaptor: DataAdapter, path: string): string {
+export function getImgUrl(app: App, vaultAdaptor: DataAdapter, path: string): string {
 
 	if (!path) {
 		return null;
@@ -68,10 +68,3 @@ export function getImgUrl(vaultAdaptor: DataAdapter, path: string): string {
 
 	return vaultAdaptor.getResourcePath(path);
 }
-
-const parseSource = (src: string, filepath: string): string => {
-	// Absolute paths, relative paths, & URLs
-	const path = src.startsWith('/') ? src.slice(1) : src;
-	const file = app.vault.getAbstractFileByPath(path);
-	return (file instanceof TFile) ? app.vault.getResourcePath(file) : src;
-};
