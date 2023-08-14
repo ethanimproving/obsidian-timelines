@@ -20,7 +20,59 @@ export interface Args {
 export const RENDER_TIMELINE: RegExp = /<!--TIMELINE BEGIN tags=['"]([^"]*?)['"]-->([\s\S]*?)<!--TIMELINE END-->/i;
 
 export class TimelineProcessor {
-	async insertTimelineIntoCurrentNote(sourceView: MarkdownView, settings: TimelinesSettings, vaultFiles: TFile[], fileCache: MetadataCache, appVault: Vault) {
+
+    createNoteCard(event: any): HTMLElement {
+        let noteCard = document.createElement('div');
+        noteCard.className = 'timeline-card';
+        if (event.img) {
+            let thumb = document.createElement('div');
+            thumb.className = 'thumb';
+            thumb.style.backgroundImage = `url(${event.img})`;
+            noteCard.appendChild(thumb);
+        }
+        if (event.class) {
+            noteCard.classList.add(event.class);
+        }
+    
+        let article = document.createElement('article');
+        let h3 = document.createElement('h3');
+        let a = document.createElement('a');
+        a.className = 'internal-link';
+        a.href = event.path;
+        a.textContent = event.title;
+        h3.appendChild(a);
+        article.appendChild(h3);
+        noteCard.appendChild(article);
+    
+        let p = document.createElement('p');
+        p.textContent = event.description;
+        noteCard.appendChild(p);
+    
+        return noteCard;
+    }
+    
+    getStartEndDates(event: any): [Date, Date] {
+        let startDate = event.date?.replace(/(.*)-\d*$/g, '$1');
+        let start: Date, end: Date;
+        if (startDate[0] == '-') {
+            let startComp = startDate.substring(1, startDate.length).split('-');
+            start = new Date(+`-${startComp[0]}`, +startComp[1], +startComp[2]);
+        } else {
+            start = new Date(startDate);
+        }
+    
+        let endDate = event.endDate?.replace(/(.*)-\d*$/g, '$1');
+        if (endDate && endDate[0] == '-') {
+            let endComp = endDate.substring(1, endDate.length).split('-');
+            end = new Date(+`-${endComp[0]}`, +endComp[1], +endComp[2]);
+        } else {
+            end = new Date(endDate);
+        }
+    
+        return [start, end];
+    }
+
+    async insertTimelineIntoCurrentNote(sourceView: MarkdownView, settings: TimelinesSettings, vaultFiles: TFile[], fileCache: MetadataCache, appVault: Vault) {
 		let editor = sourceView.editor;
 		if (editor) {
 			const source = editor.getValue();
@@ -43,225 +95,188 @@ export class TimelineProcessor {
 		}
 	};
 
-	async run(source: string, el: HTMLElement, settings: TimelinesSettings, vaultFiles: TFile[], fileCache: MetadataCache, appVault: Vault, visTimeline: boolean) {
+    parseArgs(source: string, visTimeline: boolean): Args {
+        let args: Args = {
+            tags: '',
+            divHeight: 400,
+            startDate: '-1000',
+            endDate: '3000',
+            minDate: '-3000',
+            maxDate: '3000'
+        };
 
-		let args: Args = {
-			tags: '',
-			divHeight: 400,
-			startDate: '-1000',
-			endDate: '3000',
-			minDate: '-3000',
-			maxDate: '3000'
-		};
+        if (visTimeline) {
+            source.split('\n').map(e => {
+                e = e.trim();
+                if (e) {
+                    let param = e.split('=');
+                        if (param[1]) {
+                        args[param[0]] = param[1]?.trim();
+                    }
+                }
+            });
+        } else {
+            args.tags = source.trim();
+        }
 
-		// read arguments
-		if (visTimeline) {
-			source.split('\n').map(e => {
-				e = e.trim();
-				if (e) {
-					let param = e.split('=');
-					if (param[1]) {
-						args[param[0]] = param[1]?.trim();
-					}
-				}
-			});
-		} else {
-			// Parse the tags to search for the proper files
-			args.tags = source.trim();
-		}
+        return args;
+    }
 
-		let tagSet = new Set<string>();
-		args.tags.split(";").forEach(tag => parseTag(tag, tagSet));
-		tagSet.add(settings.timelineTag);
+    getTagSet(tags: string, timelineTag: string): Set<string> {
+        let tagSet = new Set<string>();
+        tags.split(";").forEach(tag => parseTag(tag, tagSet));
+        tagSet.add(timelineTag);
+        return tagSet;
+    }
 
-		// Filter all markdown files to only those containing the tag list
-		let fileList = vaultFiles.filter(file => FilterMDFiles(file, tagSet, fileCache));
-		if (!fileList) {
-			// if no files valid for timeline
-			return;
-		}
+    filterFiles(vaultFiles: TFile[], tagSet: Set<string>, fileCache: MetadataCache): TFile[] {
+        return vaultFiles.filter(file => FilterMDFiles(file, tagSet, fileCache));
+    }
 
-		// Keep only the files that have the time info
-		let timeline = document.createElement('div');
-		timeline.setAttribute('class', 'timeline');
-		let [timelineNotes, timelineDates] = await getTimelineData(appVault, fileCache, fileList, settings);
+    sortDates(timelineDates: number[], sortDirection: boolean): number[] {
+        if (sortDirection) {
+            return timelineDates.sort((d1, d2) => d1 - d2);
+        } else {
+            return timelineDates.sort((d1, d2) => d2 - d1);
+        }
+    }
 
-		// Sort events based on setting
-		if (settings.sortDirection) {
-			// default is ascending
-			timelineDates = timelineDates.sort((d1, d2) => d1 - d2);
-		} else {
-			// else it is descending
-			timelineDates = timelineDates.sort((d1, d2) => d2 - d1);
-		}
+    buildHtmlTimeline(timeline: HTMLElement, timelineNotes: Map<number, NoteData>, timelineDates: number[], settings: TimelinesSettings) {
+        let eventCount = 0;
+        for (let date of timelineDates) {
+            let noteContainer = timeline.createDiv({ cls: 'timeline-container' });
+            let noteHeader = noteContainer.createEl('h2', { text: timelineNotes.get(date)[0].date.replace(/-0*$/g, '').replace(/-0*$/g, '').replace(/-0*$/g, '')});
+            let era = settings.era[Number(!noteHeader.textContent.startsWith('-'))];
+            let eventContainer = noteContainer.createDiv({ cls: 'timeline-event-list', attr: { 'style': 'display: block'} });
+            noteHeader.textContent += ' ' + era;
+    
+            noteHeader.addEventListener('click', event => {
+                if (eventContainer.style.getPropertyValue('display') === 'none') {
+                    eventContainer.style.setProperty('display', 'block');
+                    return;
+                }
+                eventContainer.style.setProperty('display', 'none');
+            });
+    
+            if (eventCount % 2 == 0) {
+                noteContainer.addClass('timeline-left');
+            } else {
+                noteContainer.addClass('timeline-right');
+                noteHeader.setAttribute('style', 'text-align: right;');
+            }
+    
+            if (!timelineNotes.has(date)) {
+                continue;
+            }
+    
+            for (let eventAtDate of timelineNotes.get(date)) {
+                let noteCard = eventContainer.createDiv({ cls: 'timeline-card' });
+                if (eventAtDate.img) {
+                    noteCard.createDiv({ cls: 'thumb', attr: { style: `background-image: url(${eventAtDate.img});` } });
+                }
+                if (eventAtDate.class) {
+                    noteCard.addClass(eventAtDate.class);
+                }
+    
+                noteCard.createEl('article').createEl('h3').createEl('a',
+                    {
+                        cls: 'internal-link',
+                        attr: { href: `${eventAtDate.path}` },
+                        text: eventAtDate.title
+                    });
+                noteCard.createEl('p', { text: eventAtDate.description });
+            }
+            eventCount++;
+        }
+    }
 
-		if (!visTimeline) {
+    buildVisTimelineItems(timelineNotes: Map<number, NoteData>, timelineDates: number[]): DataSet<any, any> {
+            let items = new DataSet<any, any>([]);
+        
+            timelineDates.forEach(date => {
+                Object.values(timelineNotes.get(date)).forEach(event => {
+                    let noteCard = this.createNoteCard(event);
+                    let [start, end] = this.getStartEndDates(event);
+        
+                    if (start.toString() === 'Invalid Date') return;
+                    if ((event.type === "range" || event.type === "background") && end.toString() === 'Invalid Date') return;
+        
+                    items.add({
+                        id: items.length + 1,
+                        content: event.title ?? '',
+                        title: noteCard.outerHTML,
+                        description: event.description,
+                        start: start,
+                        className: event.class ?? '',
+                        type: event.type,
+                        end: end ?? null,
+                        path: event.path
+                    });
+                });
+            });
+            return items;
+        }
 
-			let eventCount = 0;
-			// Build the timeline html element
-			for (let date of timelineDates) {
-				let noteContainer = timeline.createDiv({ cls: 'timeline-container' });
-				let noteHeader = noteContainer.createEl('h2', { text: timelineNotes.get(date)[0].date.replace(/-0*$/g, '').replace(/-0*$/g, '').replace(/-0*$/g, '')});
-				let era = settings.era[Number(!noteHeader.textContent.startsWith('-'))];
-				let eventContainer = noteContainer.createDiv({ cls: 'timeline-event-list', attr: { 'style': 'display: block'} });
-				noteHeader.textContent += ' ' + era;
+    getVisTimelineOptions(args: Args, settings: TimelinesSettings) {
+        let options = {
+            minHeight: +args.divHeight,
+            showCurrentTime: false,
+            showTooltips: false,
+            template: function (item: any) {
+                let eventContainer = document.createElement(settings.notePreviewOnHover ? 'a' : 'div');
+                if ("href" in eventContainer) {
+                    eventContainer.addClass('internal-link');
+                    eventContainer.href = item.path;
+                }
+                eventContainer.setText(item.content);
+                let eventCard = eventContainer.createDiv();
+                eventCard.outerHTML = item.title;
+                eventContainer.addEventListener('click', event => {
+                    let el = (eventContainer.getElementsByClassName('timeline-card')[0] as HTMLElement);
+                    el.style.setProperty('display', 'block');
+                    el.style.setProperty('top', `-${el.clientHeight + 10}px`);
+                });
+                return eventContainer;
+            },
+            start: createDate(args.startDate),
+            end: createDate(args.endDate),
+            min: createDate(args.minDate),
+            max: createDate(args.maxDate)
+        };
+        return options;
+    }
+    
 
-				noteHeader.addEventListener('click', event => {
-					if (eventContainer.style.getPropertyValue('display') === 'none') {
-						eventContainer.style.setProperty('display', 'block');
-						return;
-					}
-					// TODO: Stop Propagation: don't close timeline-card when clicked.
-					//  `vis-timeline-graph2d.js` contains a method called `_updateContents` that makes the display
-					//  attribute disappear on click via line 7426: `element.innerHTML = '';`
-					eventContainer.style.setProperty('display', 'none');
-				});
+    createVisTimeline(timeline: HTMLElement, items: DataSet <any, any>, options: any) {
+        timeline.setAttribute('class', 'timeline-vis');
+        new Timeline(timeline, items, options);
+    }
 
-				if (eventCount % 2 == 0) {
-					// if its even add it to the left
-					noteContainer.addClass('timeline-left');
+    async run(source: string, el: HTMLElement, settings: TimelinesSettings, vaultFiles: TFile[], fileCache: MetadataCache, appVault: Vault, visTimeline: boolean) {
 
-				} else {
-					// else add it to the right
-					noteContainer.addClass('timeline-right');
-					noteHeader.setAttribute('style', 'text-align: right;');
-				}
+        let args = this.parseArgs(source, visTimeline);
+        let tagSet = this.getTagSet(args.tags, settings.timelineTag);
+        let fileList = this.filterFiles(vaultFiles, tagSet, fileCache);
+        if (!fileList) return;
 
-				if (!timelineNotes.has(date)) {
-					continue;
-				}
+        let [timelineNotes, timelineDates] = await getTimelineData(appVault, fileCache, fileList, settings);
+        timelineDates = this.sortDates(timelineDates, settings.sortDirection);
 
-				for (let eventAtDate of timelineNotes.get(date)) {
-					let noteCard = eventContainer.createDiv({ cls: 'timeline-card' });
-					// add an image only if available
-					if (eventAtDate.img) {
-						noteCard.createDiv({ cls: 'thumb', attr: { style: `background-image: url(${eventAtDate.img});` } });
-					}
-					if (eventAtDate.class) {
-						noteCard.addClass(eventAtDate.class);
-					}
+        let timeline = document.createElement('div');
+        timeline.setAttribute('class', 'timeline');
 
-					noteCard.createEl('article').createEl('h3').createEl('a',
-						{
-							cls: 'internal-link',
-							attr: { href: `${eventAtDate.path}` },
-							text: eventAtDate.title
-						});
-					noteCard.createEl('p', { text: eventAtDate.description });
-				}
-				eventCount++;
-			}
+        if (!visTimeline) {
+            this.buildHtmlTimeline(timeline, timelineNotes, timelineDates, settings);
+            el.appendChild(timeline);
+            return;
+        }
 
-			// Replace the selected tags with the timeline html
-			el.appendChild(timeline);
-			return;
-		}
-
-		// Create a DataSet
-		let items = new DataSet([]);
-
-		timelineDates.forEach(date => {
-
-			// add all events at this date
-			Object.values(timelineNotes.get(date)).forEach(event => {
-				// Create Event Card
-				let noteCard = document.createElement('div');
-				noteCard.className = 'timeline-card';
-				// add an image only if available
-				if (event.img) {
-					noteCard.createDiv({ cls: 'thumb', attr: { style: `background-image: url(${event.img});` } });
-				}
-				if (event.class) {
-					noteCard.addClass(event.class);
-				}
-
-				noteCard.createEl('article').createEl('h3').createEl('a', {
-					cls: 'internal-link',
-					attr: { href: `${event.path}` },
-					text: event.title
-				});
-				noteCard.createEl('p', { text: event.description });
-
-				let startDate = event.date?.replace(/(.*)-\d*$/g, '$1');
-				let start, end;
-				if (startDate[0] == '-') {
-					// handle negative year
-					let startComp = startDate.substring(1, startDate.length).split('-');
-					start = new Date(+`-${startComp[0]}`, +startComp[1], +startComp[2]);
-				} else {
-					start = new Date(startDate);
-				}
-
-				let endDate = event.endDate?.replace(/(.*)-\d*$/g, '$1');
-				if (endDate && endDate[0] == '-') {
-					// handle negative year
-					let endComp = endDate.substring(1, endDate.length).split('-');
-					end = new Date(+`-${endComp[0]}`, +endComp[1], +endComp[2]);
-				} else {
-					end = new Date(endDate);
-				}
-
-				if (start.toString() === 'Invalid Date') {
-					return;
-				}
-
-				if ((event.type === "range" || event.type === "background") && end.toString() === 'Invalid Date') {
-					return;
-				}
-
-				// Add Event data
-				items.add({
-					id: items.length + 1,
-					content: event.title ?? '',
-					title: noteCard.outerHTML,
-					description: event.description,
-					start: start,
-					className: event.class ?? '',
-					type: event.type,
-					end: end ?? null,
-					path: event.path
-				});
-			});
-		});
-
-		// Configuration for the Timeline
-		let options = {
-			minHeight: +args.divHeight,
-			showCurrentTime: false,
-			showTooltips: false,
-			template: function (item: any) {
-
-				let eventContainer = document.createElement( settings.notePreviewOnHover ? 'a' : 'div');
-				if("href" in eventContainer) {
-					eventContainer.addClass('internal-link');
-					eventContainer.href = item.path;
-				}
-				eventContainer.setText(item.content);
-				let eventCard = eventContainer.createDiv();
-				eventCard.outerHTML = item.title;
-				eventContainer.addEventListener('click', event => {
-					let el = (eventContainer.getElementsByClassName('timeline-card')[0] as HTMLElement);
-					el.style.setProperty('display', 'block');
-					el.style.setProperty('top', `-${el.clientHeight + 10}px`);
-				});
-				return eventContainer;
-			},
-			start: createDate(args.startDate),
-			end: createDate(args.endDate),
-			min: createDate(args.minDate),
-			max: createDate(args.maxDate)
-		};
-
-		// Create a Timeline
-		timeline.setAttribute('class', 'timeline-vis');
-		new Timeline(timeline, items, options);
-
-		// Replace the selected tags with the timeline html
-		el.appendChild(timeline);
-	}
+        let items = this.buildVisTimelineItems(timelineNotes, timelineDates);
+        let options = this.getVisTimelineOptions(args, settings);
+        this.createVisTimeline(timeline, items, options);
+        el.appendChild(timeline);
+    }
 }
-
-const cache = new Map<string, [Map<number, NoteData>, number[]]>();
 
 async function getTimelineData(appVault: Vault, fileCache: MetadataCache, fileList: TFile[], settings: TimelinesSettings): Promise<[Map<number, NoteData>, number[]]> {
 	const timeline = document.createElement('div');

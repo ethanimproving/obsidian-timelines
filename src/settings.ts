@@ -94,4 +94,3 @@ export class TimelinesSettingTab extends PluginSettingTab {
 
 	}
 }
-
