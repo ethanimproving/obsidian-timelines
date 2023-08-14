@@ -1,6 +1,7 @@
 import type {App, DataAdapter, MetadataCache} from 'obsidian';
 import {getAllTags, TFile,} from 'obsidian';
 
+
 export function parseTag(tag: string, tagSet: Set<string>) {
 	tag = tag.trim();
 

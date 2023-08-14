@@ -1,7 +1,7 @@
 import type {FrontMatterCache, MarkdownView, MetadataCache, TFile, Vault,} from 'obsidian';
 import type {FrontmatterKeys, NoteData, TimelinesSettings} from './types';
 import {BST} from './bst';
-import {App, Notice} from 'obsidian';
+import {Notice} from 'obsidian';
 import {createDate, FilterMDFiles, getImgUrl, parseTag} from './utils';
 import {DataSet} from "vis-data";
 import {Timeline} from "vis-timeline/esnext";
@@ -275,6 +275,36 @@ export class TimelineProcessor {
         let options = this.getVisTimelineOptions(args, settings);
         this.createVisTimeline(timeline, items, options);
         el.appendChild(timeline);
+    }
+
+    async insertTimelineYaml(frontmatterKeys: FrontmatterKeys, sourceView: MarkdownView) {
+        const editor = sourceView.editor;
+        if (!editor) return;
+
+        // Create a YAML block with the frontmatter keys
+        let yaml = 'title:\n';
+        yaml += 'description:\n';
+        yaml += 'image:\n';
+        yaml += 'type:\n';
+        yaml += 'color:\n';
+        yaml += 'start-date:\n';
+        yaml += 'end-date:\n';
+
+        // Check if the current note already has a YAML header
+        const firstLine = editor.getLine(0);
+        if (firstLine === '---') {
+          // If it does, add the new keys to the existing YAML header
+            let frontmatterEnd = 1;
+            while (frontmatterEnd <= editor.lastLine() && editor.getLine(frontmatterEnd) !== '---') {
+                frontmatterEnd++;
+            }
+          // Add the new keys to the existing YAML header
+            editor.replaceRange(yaml, { line: frontmatterEnd, ch: 0 }, { line: frontmatterEnd, ch: 0 });
+        } else {
+          // If not, insert the new YAML block at the beginning of the note
+            yaml = '---\n' + yaml + '---\n';
+            editor.replaceRange(yaml, { line: 0, ch: 0 }, { line: 0, ch: 0 });
+        }
     }
 }
 

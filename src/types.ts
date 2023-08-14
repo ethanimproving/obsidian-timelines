@@ -9,8 +9,8 @@ export const DEFAULT_FRONTMATTER_KEYS: FrontmatterKeys = {
 	startDateKey: ['start-date'],
 	endDateKey: ['end-date'],
 	titleKey: ['title'],
-	descriptionKey:['description'],
-};
+	descriptionKey: ['description'],
+}
 
 export interface TimelinesSettings {
 	era: any;
@@ -18,6 +18,7 @@ export interface TimelinesSettings {
 	sortDirection: boolean;
 	notePreviewOnHover: boolean;
 	frontmatterKeys: FrontmatterKeys;
+	showRibbonCommand: boolean
 }
 
 export interface TimelineArgs {

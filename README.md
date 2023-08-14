@@ -11,8 +11,7 @@ Generate a chronological timeline of all notes with the specified set of tags.
 
 VIDEO BRIEF EXAMPLE: https://www.youtube.com/watch?v=_gtpZDXWcrM
 
-1. Add the `timeline` tag to the note, either in the YAML frontmatter or somewhere else (a note without a timeline tag is ignored when building a timeline).
-2. or a timeline HTML comment for static rendering.
+Add the `timeline` tag to the note, either in the YAML frontmatter (a note without a `timeline` tag is ignored when building a timeline).
 
 ### Using a Timeline code block for dynamic rendering
 
@@ -37,21 +36,19 @@ Use the Timelines: Render Timeline command to generate a timeline statically. Ru
 The note will be ignored in the following cases:
 - no `timeline` tag (or the modified tag from the settings)
 - Note does not contain all the tags from the search list
-- No timeline `<span>` or `<div>` info block, or frontmatter(YAML) to pull from
+- No frontmatter(YAML) to pull from
 - The used date is not VALID, must be in the following format YEAR-MONTH-DAY-MINUTES (check info section below for more details)
 
 ## Timeline Event Properties
 
 Timeline events must specify the following: 
 - a valid date, YEAR-MONTH-DAY-MINUTES (check info section below for more details)
-- a valid class, specifically `ob-timelines` must be specified.
 All other fields are optional.
 Invalid timeline events will be skipped.
 
 ### Timeline Entry
 
-There are 2 ways to register a note with the timeline: Frontmatter or HTML tags. If HTML tags are included in the note,
-they will be used. Otherwise the timeline with default to gathering data from the frontmatter.
+Using Frontmatter(YAML), the timeline wiil gathering data from the frontmatter.
 
 #### Method 1: Frontmatter
 
@@ -89,45 +86,6 @@ Supported `types` are:
 - background
 - point
 
-#### Method 2: HTML
-
-A timeline entry can be created using a `<span></span>` or `<div></div>` tag, with the following attributes: 
-
-```html
-<span 
-	  class='ob-timelines' 
-	  data-date='2000-10-10-00' 
-	  data-title='Another Event' 
-	  data-class='orange' 
-	  data-img = 'Timeline Example/Timeline_2.jpg' 
-	  data-type='range' 
-	  data-end='2000-10-20-00'> 
-	A second event! (this would be used as the description for the timeline event card)
-</span>
-```
-Timeline span and div entries (.ob-timelines class) are hidden in preview by default, however, if you wish to display content, try a snippet like this: 
-```css
-/* Render the ob-timelines span or div elements as inline blocks that use an italic font */
-.ob-timelines {
-  display: inline-block !important;
-  font-style: italic;
-}
-/* Use the before pseudo element to display attributes of the span or div */
-.ob-timelines::before {
-  content: "🔖 " attr(data-date) ": " attr(data-title) ". ";
-  color: lilac;
-  font-weight: 500;
-}
-```
-Using the above snippet, a span like this: 
-```html
-<span class='ob-timelines' data-date='1499-03-28-00' data-title="An example"></span>
-```
-would be rendered as: 
-<img width="228" alt="image" src="https://user-images.githubusercontent.com/808713/159139934-e5c7cb5a-da31-4a57-8100-946f944010a3.png">
-### Timeline Span block
-- Hidden in preview by default in order to keep the note clean
-
 ### Date
 - The most important and essential info, if it is not valid the note will be ignored
 
@@ -137,7 +95,7 @@ would be rendered as:
   - The length of each element i.e. `YEAR` can be of any length for example `123456789`
   - The same applies to MONTH, DAY and HOUR. this means **if your input time is not valid the plugin will not check that**. Why this choice? If this plugin is used for a fantasy setup where the # of month are not only 12 for example.
   - ALL 4 GROUPS must be specified however if they don't exist / not want to be shown replace them with a zero. For example if an event only has the year and the month it can be written as follows `2300-02-00-00` this will be rendered on the timeline as `2300-02` (the trailing zeros will be removed). For only a year `2300-00-00-00` -> `2300`
-  - IMPORTANT: the sorting is based on the date being converted to an integer after parsing out the `-` this means to get the proper sorting, if minutes are not added you need to replace with `00` (the maximum number of integer for that date category.
+  - IMPORTANT: the sorting is based on the date being converted to an integer after parsing out the `-` this means to get the proper sorting, if minutes are not added you need to replace with `00` (the maximum number of integer for that date category.)
 
 ### Title:
   - Optional
@@ -151,12 +109,11 @@ would be rendered as:
   - Optional
   - If an image is not specified no image will be shown (just text)
   - If an invalid url is given (an empty black section will be seen for that note card)
-  - Currently only `http` & `absolute local path` will render, in the current obsidian release of `v0.10.13` obsidian links for background images are blocked from rendering, hopefully it is promised that this will be removed in the upcuming release. 
+  - Currently only `http` & `embeded internal links` will render. ```"![[image.png]]"``` yes the quotes are needed.
 
 ### CSS Class:
   - Optional
-  - Adds the applied css class to the note card associated with this span info block
-
+  - Adds the applied css class to the note card associated with this event. (this is the color)
 
 ## Release Notes
 

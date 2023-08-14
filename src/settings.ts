@@ -36,6 +36,16 @@ export class TimelinesSettingTab extends PluginSettingTab {
 				})});
 
 		new Setting(containerEl)
+			.setName('Show Ribbon Button')
+			.setDesc('Adds a icon to insert Yaml to create a timeline event')
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.showRibbonCommand)
+				toggle.onChange(async (value) => {
+					this.plugin.settings.showRibbonCommand = value
+					await this.plugin.saveSettings()
+				})});
+
+		new Setting(containerEl)
 			.setName("Display Note Preview On Hover")
 			.setDesc("When enabled, linked notes will display as a pop up when hovering over an event in the timeline.")
 			.addToggle((toggle) => {
